@@ -4,6 +4,7 @@ import hmac
 import os
 import urllib.parse
 from time import time
+from typing import Union
 
 import requests as r
 from dotenv import load_dotenv
@@ -18,14 +19,13 @@ class KrakenAPI:
         if priv_key is None:
             self.priv_key = os.environ["KRAKEN_PRIVATE_KEY"]
 
-
-
     def _create_api_signature(self, urlpath: str, data: dict) -> str:
         postdata = urllib.parse.urlencode(data)
         encoded = (str(data['nonce']) + postdata).encode()
         message = urlpath.encode() + hashlib.sha256(encoded).digest()
 
-        mac = hmac.new(base64.b64decode(self.priv_key), message, hashlib.sha512)
+        mac = hmac.new(base64.b64decode(self.priv_key),
+                       message, hashlib.sha512)
         sigdigest = base64.b64encode(mac.digest())
         return sigdigest.decode()
 
@@ -52,7 +52,7 @@ class KrakenAPI:
         print(data)
         return self._send_req(api_endpoint, data)
 
-    def get_deposit_address(self, asset: str, method: str, new=True) -> r.Response:
+    def get_deposit_address(self, asset: str, method: str, new: bool = True) -> r.Response:
         api_endpoint = "/0/private/DepositAddresses"
         data = self._create_data(asset=asset, method=method, new=new)
         return self._send_req(api_endpoint, data)
@@ -62,18 +62,55 @@ class KrakenAPI:
         data = self._create_data(asset=asset)
         return self._send_req(api_endpoint, data)
 
-    def get_open_orders(self, trades=False, userref=None) -> r.Response:
+    def get_open_orders(self, trades: bool = False, userref: Union[int, None] = None) -> r.Response:
         api_endpoint = "/0/private/OpenOrders"
         data = self._create_data(trades=trades, userref=userref)
         return self._send_req(api_endpoint, data)
 
-    def get_closed_orders(self, trades=False, userref=None, start=None, end=None, ofs=None, closetime="both"):
+    def get_closed_orders(self, trades: bool = False, userref: Union[int, None] = None, start: int = None, end: int = None, ofs: int = None, closetime: str = "both"):
         api_endpoint = "/0/private/ClosedOrders"
         data = self._create_data(
             trades=trades, userref=userref, start=start, end=end, ofs=ofs, closetime=closetime)
         return self._send_req(api_endpoint, data)
 
+    def query_orders_info(self, txid: str, trades: bool = False, userref: Union[int, None] = None):
+        api_endpoint = "/0/private/QueryOrders"
+        data = self._create_data(txid=txid, trades=trades, userref=userref)
+        return self._send_req(api_endpoint, data)
+
+    def get_trades_history(self, type: str = "all", trades: bool = False, start: Union[int, None] = None, end: Union[int, None] = None, ofs: Union[int, None] = None):
+        api_endpoint = "/0/private/TradesHistory"
+        data = self._create_data(
+            type=type, trades=trades, start=start, end=end, ofs=ofs)
+        return self._send_req(api_endpoint, data)
+
+    def query_trades_info(self, txid: str, trades: bool = False):
+        api_endpoint = "/0/private/QueryTrades"
+        data = self._create_data(txid=txid, trades=trades)
+        return self._send_req(api_endpoint, data)
+
+    def get_open_positions(self, txid: Union[str, None] = None, docalcs: bool = False, consolidation: str = 'market'):
+        api_endpoint = "/0/private/OpenPositions"
+        data = self._create_data(
+            txid=txid, docalcs=docalcs, consolidation=consolidation)
+        return self._send_req(api_endpoint, data)
+
+    def get_ledgers_info(self, asset: str = 'all', aclass: str = 'currency', type: str = 'all', start: Union[int, None] = None, end: Union[int, None] = None, ofs: Union[int, None] = None):
+        api_endpoint = "/0/private/Ledgers"
+        data = self._create_data(
+            asset=asset, aclass=aclass, type=type, start=start, end=end, ofs=ofs)
+        return self._send_req(api_endpoint, data)
+
+    def query_ledgers(self, id:Union[str, None] = None, trades:bool = False):
+        api_endpoint = "/0/private/QueryLedgers"
+        data = self._create_data(id=id, trades=trades)
+        return self._send_req(api_endpoint, data)
+
+    def get_trade_volume(self, pair:str, fee_info:bool=False):
+        api_endpoint = "/0/private/TradeVolume"
+        data = self._create_data(pair=pair, fee_info=fee_info)
+        return self._send_req(api_endpoint, data)
 
 if __name__ == "__main__":
     api = KrakenAPI()
-    print(api.get_balance().json())
+    print(api.get_trade_volume().json())
