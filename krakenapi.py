@@ -19,6 +19,7 @@ class KrakenAPI:
         if priv_key is None:
             self.priv_key = os.environ["KRAKEN_PRIVATE_KEY"]
 
+    # Utils
     def _create_api_signature(self, urlpath: str, data: dict) -> str:
         postdata = urllib.parse.urlencode(data)
         encoded = (str(data['nonce']) + postdata).encode()
@@ -46,15 +47,11 @@ class KrakenAPI:
         headers = self._create_headers(endpoint, data)
         return r.post(self.base_url + endpoint, headers=headers, data=data)
 
-    def get_balance(self) -> r.Response:
+    # User Data
+    def get_account_balance(self) -> r.Response:
         api_endpoint = "/0/private/Balance"
         data = self._create_data()
         print(data)
-        return self._send_req(api_endpoint, data)
-
-    def get_deposit_address(self, asset: str, method: str, new: bool = True) -> r.Response:
-        api_endpoint = "/0/private/DepositAddresses"
-        data = self._create_data(asset=asset, method=method, new=new)
         return self._send_req(api_endpoint, data)
 
     def get_trade_balance(self, asset: str) -> r.Response:
@@ -101,16 +98,210 @@ class KrakenAPI:
             asset=asset, aclass=aclass, type=type, start=start, end=end, ofs=ofs)
         return self._send_req(api_endpoint, data)
 
-    def query_ledgers(self, id:Union[str, None] = None, trades:bool = False):
+    def query_ledgers(self, id: Union[str, None] = None, trades: bool = False):
         api_endpoint = "/0/private/QueryLedgers"
         data = self._create_data(id=id, trades=trades)
         return self._send_req(api_endpoint, data)
 
-    def get_trade_volume(self, pair:str, fee_info:bool=False):
+    def get_trade_volume(self, pair: str, fee_info: bool = False):
         api_endpoint = "/0/private/TradeVolume"
         data = self._create_data(pair=pair, fee_info=fee_info)
         return self._send_req(api_endpoint, data)
 
+    def request_export_report(self, report: str, description: str, format: str = 'csv', fields: str = 'all', starttm: Union[int, None] = None, endtm: Union[int, None] = None):
+        api_endpoint = "/0/private/AddExport"
+        data = self._create_data(report=report, description=description,
+                                 format=format, fields=fields, starttm=starttm, endtm=endtm)
+        return self._send_req(api_endpoint, data)
+
+    def get_export_reqort_status(self, report: str):
+        api_endpoint = "/0/private/ExportStatus"
+        data = self._create_data(report=report)
+        return self._send_req(api_endpoint, data)
+
+    def retrieve_data_export(self, id: str):
+        api_endpoint = "/0/private/RetrieveExport"
+        data = self._create_data(id=id)
+        return self._send_req(api_endpoint, data)
+
+    def delete_export_report(self, id: str, type: str):
+        api_endpoint = "/0/private/RemoveExport"
+        data = self._create_data(id=id, type=type)
+        return self._send_req(api_endpoint, data)
+
+    # User Trading
+    def add_order(self, ordertype: str, type: str, pair: str, **kwargs):
+        """ 
+        [required]
+        ordertype
+        type
+        pair
+        [optional arguments]
+        userref: int        
+        volume:str
+        price:str
+        price2:str
+        leverage:str
+        oflags:str
+        starttm:str
+        expiretm:str
+        close_order_type (close[ordertype]): str
+        close_price (close[price])
+        close_price2 (close[price2])
+        trading_agreement
+        validate
+        """
+        # The person who wrote these parameters to have brackets in them is a fucking maniac
+        api_endpoint = "/0/private/AddOrder"
+        data = self._create_data(
+            ordertype=ordertype, type=type, pair=pair).update(kwargs)
+
+        # I fucking hate this endpoint in particular
+        if "close_order_type" in data:
+            data['close[ordertype]'] = data["close_order_type"]
+            del data['close_order_type']
+        if "close_price" in data:
+            data['close[price]'] = data["close_price"]
+            del data['close_price']
+        if "close_price2" in data:
+            data['close[price2]'] = data['close_price2']
+            del data['close_price2']
+
+        return self._send_req(api_endpoint, data)
+
+    def cancel_order(self, txid: Union[str, int]):
+        api_endpoint = "/0/private/CancelOrder"
+        data = self._create_data(txid=txid)
+        return self._send_req(api_endpoint, data)
+
+    def cancel_all_orders(self):
+        api_endpoint = "/0/private/CancelAll"
+        data = self._create_data()
+        return self._send_req(api_endpoint, data)
+
+    def cancel_all_orders_after_x(self, timeout: int):
+        api_endpoint = "/0/private/CancelAllOrdersAfter"
+        data = self._create_data(timeout=timeout)
+        return self._send_req(api_endpoint, data)
+
+    # User Funding
+
+    def get_deposit_methods(self, asset: str):
+        api_endpoint = "/0/private/DepositMethods"
+        data = self._craete_data(asset=asset)
+        return self._send_req(api_endpoint, data)
+
+    def get_deposit_address(self, asset: str, method: str, new: bool = True) -> r.Response:
+        api_endpoint = "/0/private/DepositAddresses"
+        data = self._create_data(asset=asset, method=method, new=new)
+        return self._send_req(api_endpoint, data)
+
+    def get_status_of_recent_deposits(self, asset: str, method: Union[str, None] = None):
+        api_endpoint = "/0/private/DepositStatus"
+        data = self._create_data(asset=asset, method=method)
+        return self._send_req(api_endpoint, data)
+
+    def get_withdrawl_information(self, asset: str, key: str, amount: str):
+        api_endpoint = '/0/private/WithdrawInfo'
+        data = self._create_data(asset=asset, key=key, amount=amount)
+        return self._send_req(api_endpoint, data)
+
+    def withdrawl_funds(self, asset: str, key: str, amount: str):
+        api_endpoint = '/0/private/Withdraw'
+        data = self._create_data(asset=asset, key=key, amount=amount)
+        return self._send_req(api_endpoint, data)
+
+    def get_status_of_recent_withdrawls(self, asset: str, method: Union[str, None] = None):
+        api_endpoint = '/0/private/WithdrawStatus'
+        data = self._create_data(asset=asset, method=method)
+        return self._send_req(api_endpoint, data)
+
+    def request_withdrawl_cancelation(self, asset: str, refid: str):
+        api_endpoint = "/0/private/WithdrawCancel"
+        data = self._create_data(asset=asset, refid=refid)
+        return self._send_req(api_endpoint, data)
+
+    def request_wallet_transfer(self, asset: str, _from: str, to: str, amount: str):
+        api_endpoint = "/0/private/WalletTransfer"
+        data = self._create_data(asset=asset, to=to, amount=amount)
+        data['from'] = _from
+        return self._send_req(api_endpoint, data)
+
+    def get_websocket_token(self):
+        api_endpoint = "/0/private/GetWebSocketsToken"
+        data = self._create_data()
+        return self._send_req(api_endpoint, data)
+
+    # Market data
+    def get_server_time(self):
+        return r.get(self.base_url + '/0/public/Time')
+
+    def get_system_status(self):
+        return r.get(self.base_url + "/0/public/SystemStatus")
+
+    def get_asset_info(self, asset: Union[str, None] = None, aclass: Union[str, None] = None):
+        api_endpoint = "/0/public/Assets?"
+
+        params = {}
+        if asset is not None:
+            params['asset'] = asset
+        if aclass is not None:
+            params['aclass'] = aclass
+
+        if params:
+            params = urllib.parse.urlencode(params)
+            return r.get(self.base_url + api_endpoint + params)
+        return r.get(self.base_url + api_endpoint)
+
+    def get_tradable_asset_pairs(self, pair: Union[str, None] = None, info: str = 'info'):
+        api_endpoint = "/0/public/AssetPairs?"
+        params = {}
+        if pair is not None:
+            params['pair'] = pair
+        params['info'] = info
+        params = urllib.parse.urlencode(params)
+        return r.get(self.base_url + api_endpoint + params)
+
+    def get_ticker_info(self, pair: str):
+        api_endpoint = f"/0/public/Ticker?pair={pair}"
+        return r.get(self.base_url + api_endpoint)
+
+    def get_ohlc(self, pair: str, interval: int = 1, since: Union[int, None] = None):
+        api_endpoint = "/0/public/OHLC?"
+        params = {
+            'pair': pair,
+            'interval': interval
+        }
+        if since is not None:
+            params['since'] = since
+        params = urllib.parse.urlencode(params)
+        return r.get(self.base_url + api_endpoint + params)
+
+    def get_order_book(self, pair: str, count: Union[int, None] = None):
+        api_endpoint = "/0/public/Depth?"
+        params = {"pair": pair}
+        if count is not None:
+            params['count'] = count
+        params = urllib.parse.urlencode(params)
+        return r.get(self.base_url + api_endpoint + params)
+
+    def get_recent_trades(self, pair: str, since: Union[str, None] = None):
+        api_endpoint = "/0/public/Trades?"
+        params = {"pair": pair}
+        if since is not None:
+            params['since'] = since
+        params = urllib.parse.urlencode(params)
+        return r.get(self.base_url + api_endpoint + params)
+
+    def get_recent_spreads(self, pair: str, since: Union[int, None] = None):
+        api_endpoint = "/0/public/Spread?"
+        params = {"pair": pair}
+        if since is not None:
+            params['since'] = since
+        params = urllib.parse.urlencode(params)
+        return r.get(self.base_url + api_endpoint + params)
+
+
 if __name__ == "__main__":
     api = KrakenAPI()
-    print(api.get_trade_volume().json())
+    print(api.get_recent_spreads('BTC/USD').json())
