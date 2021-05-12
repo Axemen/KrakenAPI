@@ -3,10 +3,6 @@ import json
 
 import websockets
 
-from krakenapi import KrakenAPI
-
-api = KrakenAPI()
-
 
 async def main():
     uri = "wss://ws.kraken.com"
